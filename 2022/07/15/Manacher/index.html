@@ -16,15 +16,15 @@
   <meta name="author" content="KingTom">
   <meta name="keywords" content="">
   
-    <meta name="description" content="马拉车算法">
+    <meta name="description" content="马拉车算法 最长回文子串的朴素解法  回文串：如果一个长度为n的字符串s为回文串，n可为奇数或偶数，对应两种情况：   n为奇数时，回文中心为\(C\), 回文半径为\(R\)，\(\forall i \in [0, R), \, s[C-i] &#x3D; s[C+i], \, 2R+1&#x3D;n\)   n为偶数时，回文中心为\(C_1, C_2\)，回文半径为\(R\)，\(\forall i \in [">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Manacher算法">
 <meta property="og:url" content="http://example.com/2022/07/15/Manacher/index.html">
 <meta property="og:site_name" content="KingTom&#39;s Blog">
-<meta property="og:description" content="马拉车算法">
+<meta property="og:description" content="马拉车算法 最长回文子串的朴素解法  回文串：如果一个长度为n的字符串s为回文串，n可为奇数或偶数，对应两种情况：   n为奇数时，回文中心为\(C\), 回文半径为\(R\)，\(\forall i \in [0, R), \, s[C-i] &#x3D; s[C+i], \, 2R+1&#x3D;n\)   n为偶数时，回文中心为\(C_1, C_2\)，回文半径为\(R\)，\(\forall i \in [">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2022-07-15T09:36:17.289Z">
-<meta property="article:modified_time" content="2022-07-15T09:36:17.329Z">
+<meta property="article:modified_time" content="2022-07-15T15:19:05.068Z">
 <meta property="article:author" content="KingTom">
 <meta name="twitter:card" content="summary_large_image">
   
@@ -224,7 +224,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          89 字
+          873 字
         
       </span>
     
@@ -235,7 +235,7 @@
         
         
         
-          1 分钟
+          8 分钟
         
       </span>
     
@@ -278,11 +278,19 @@
             
               <div class="markdown-body">
                 
-                <p>马拉车算法 <span id="more"></span></p>
-<h1 id="最长回文子串的朴素解法">最长回文子串的朴素解法</h1>
+                <span id="more"></span>
+<h1 id="马拉车算法">马拉车算法</h1>
+<h2 id="最长回文子串的朴素解法">最长回文子串的朴素解法</h2>
 <blockquote>
-<p>回文串：如果一个长度为n的字符串s为回文串，那么有<span class="math display">\[ \forall i \in [0, C), \, s[i] = s[C+i] \]</span>;由于n可为奇数或偶数，因此</p>
+<p>回文串：如果一个长度为n的字符串s为回文串，n可为奇数或偶数，对应两种情况：</p>
 </blockquote>
+<blockquote>
+<p>n为奇数时，回文中心为<span class="math inline">\(C\)</span>, 回文半径为<span class="math inline">\(R\)</span>，<span class="math inline">\(\forall i \in [0, R), \, s[C-i] = s[C+i], \, 2R+1=n\)</span></p>
+</blockquote>
+<blockquote>
+<p>n为偶数时，回文中心为<span class="math inline">\(C_1, C_2\)</span>，回文半径为<span class="math inline">\(R\)</span>，<span class="math inline">\(\forall i \in [0, R), \, s[C_1-i] = s[C_2+i], \, 2R=n\)</span></p>
+</blockquote>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><code class="hljs cpp"><span class="hljs-function">string <span class="hljs-title">preProcess</span><span class="hljs-params">(<span class="hljs-type">const</span> string&amp; s)</span> </span>&#123;<br>    string ret = <span class="hljs-string">&quot;^&quot;</span>;<br>    <span class="hljs-keyword">for</span> (<span class="hljs-keyword">auto</span> ch: s) &#123;<br>        ret += <span class="hljs-string">&#x27;#&#x27;</span>;<br>        ret += ch;<br>    &#125;<br>    ret += <span class="hljs-string">&quot;#$&quot;</span>;<br>    <span class="hljs-keyword">return</span> ret;<br>&#125;<br><span class="hljs-function">string <span class="hljs-title">longestPalindrome</span><span class="hljs-params">(string s)</span> </span>&#123;<br>    string sx = <span class="hljs-built_in">preProcess</span>(s);<br>    <span class="hljs-type">int</span> n = sx.<span class="hljs-built_in">size</span>();<br>    <span class="hljs-function">vector&lt;<span class="hljs-type">int</span>&gt; <span class="hljs-title">P</span><span class="hljs-params">(n)</span></span>;<br>    <span class="hljs-type">int</span> C = <span class="hljs-number">0</span>, R = <span class="hljs-number">0</span>;<br>    <span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> i = <span class="hljs-number">1</span>; i &lt; n<span class="hljs-number">-1</span>; ++i) &#123;<br>        <span class="hljs-type">int</span> mirror_i = <span class="hljs-number">2</span> * C - i;<br>        <span class="hljs-keyword">if</span> (R &gt; i) P[i] = <span class="hljs-built_in">min</span>(P[mirror_i], R - i);<br>        <span class="hljs-keyword">while</span> (sx[i-P[i]<span class="hljs-number">-1</span>] == sx[i+P[i]+<span class="hljs-number">1</span>]) ++P[i];<br>        <span class="hljs-keyword">if</span> (i + P[i] &gt; R) &#123;<br>            C = i;<br>            R = i + P[i];<br>        &#125;<br>    &#125;<br>    <span class="hljs-type">int</span> max_len = <span class="hljs-number">0</span>, max_id = <span class="hljs-number">0</span>;<br>    <span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> i = <span class="hljs-number">1</span>; i &lt; n - <span class="hljs-number">1</span>; ++i) &#123;<br>        <span class="hljs-keyword">if</span> (P[i] &gt; max_len) &#123;<br>            max_len = P[i];<br>            max_id = i;<br>        &#125;<br>    &#125;<br>    <span class="hljs-type">int</span> st = (max_id - max_len) &gt;&gt; <span class="hljs-number">1</span>;<br>    <span class="hljs-keyword">return</span> s.<span class="hljs-built_in">substr</span>(st, max_len);<br>&#125;<br></code></pre></td></tr></table></figure>
 
                 
               </div>
