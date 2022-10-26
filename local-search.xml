@@ -61,7 +61,7 @@
   
   
   <entry>
-    <title>KMP算法</title>
+    <title>深入了解muduo库：EventLoopThread类</title>
     <link href="/2022/03/17/muduo-EventLoopThread/"/>
     <url>/2022/03/17/muduo-EventLoopThread/</url>
     
@@ -70,14 +70,14 @@
     
     <categories>
       
-      <category>muduo库</category>
+      <category>深入了解muduo库</category>
       
     </categories>
     
     
     <tags>
       
-      <tag>EventLoopThread</tag>
+      <tag>muduo库EventLoopThread</tag>
       
     </tags>
     
