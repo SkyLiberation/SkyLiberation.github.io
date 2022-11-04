@@ -16,25 +16,24 @@
   <meta name="author" content="KingTom">
   <meta name="keywords" content="">
   
-    <meta name="description" content="Pytorch Loss优化">
+    <meta name="description" content="EventLoopThread类 class EventLoopThread &amp;#123; private:     EventLoop *loop_;     Thread thread_; public:     EventLoop* startLoop(); &amp;#125;; startLoop() one loop per thread 是moduo库设计的核心思想，为了保证这一点，Eve">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Pytorch Loss优化">
-<meta property="og:url" content="http://example.com/2022/07/15/Pytorch%20Loss/index.html">
+<meta property="og:title" content="深入了解muduo库：EventLoopThread类">
+<meta property="og:url" content="http://example.com/2022/10/26/muduo-EventLoopThread/index.html">
 <meta property="og:site_name" content="KingTom&#39;s Blog">
-<meta property="og:description" content="Pytorch Loss优化">
+<meta property="og:description" content="EventLoopThread类 class EventLoopThread &amp;#123; private:     EventLoop *loop_;     Thread thread_; public:     EventLoop* startLoop(); &amp;#125;; startLoop() one loop per thread 是moduo库设计的核心思想，为了保证这一点，Eve">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="http://example.com/img/Loss/network.png">
-<meta property="article:published_time" content="2022-07-15T09:36:17.509Z">
-<meta property="article:modified_time" content="2022-07-15T09:36:17.557Z">
+<meta property="article:published_time" content="2022-10-26T13:04:29.675Z">
+<meta property="article:modified_time" content="2022-11-04T03:11:02.974Z">
 <meta property="article:author" content="KingTom">
+<meta property="article:tag" content="muduo库EventLoopThread">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="http://example.com/img/Loss/network.png">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
   
   
-  <title>Pytorch Loss优化 - KingTom&#39;s Blog</title>
+  <title>深入了解muduo库：EventLoopThread类 - KingTom&#39;s Blog</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -205,7 +204,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="Pytorch Loss优化"></span>
+            <span id="subtitle" data-typed-text="深入了解muduo库：EventLoopThread类"></span>
           
         </div>
 
@@ -216,8 +215,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2022-07-15 17:36" pubdate>
-          2022年7月15日 下午
+        <time datetime="2022-10-26 21:04" pubdate>
+          2022年10月26日 晚上
         </time>
       </span>
     
@@ -228,7 +227,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          1.4k 字
+          816 字
         
       </span>
     
@@ -239,7 +238,7 @@
         
         
         
-          12 分钟
+          7 分钟
         
       </span>
     
@@ -277,40 +276,39 @@
         <div id="board">
           <article class="post-content mx-auto">
             <!-- SEO header -->
-            <h1 style="display: none">Pytorch Loss优化</h1>
+            <h1 style="display: none">深入了解muduo库：EventLoopThread类</h1>
             
             
               <div class="markdown-body">
                 
-                <h1 id="pytorch-loss优化">Pytorch Loss优化</h1>
-<span id="more"></span>
-<h2 id="问题引入">问题引入</h2>
-<p>考虑这么一个网络的优化： <img src="/img/Loss/network.png" srcset="/img/loading.gif" lazyload alt="network" /> 整个网络由3个loss优化(<code>loss_cls_content, loss_adv, loss_cls_style</code>)，其中<code>loss_cls_content</code>只优化<code>Feature Extractor(Content) Block1, Feature Extractor(Content) Block1, ClsHead(Content)</code>（黄色虚线框框住的模块）、<code>loss_adv</code>只优化<code>Feature Extractor(Content) Block1</code>（红色虚线框框住的模块）、<code>loss_cls_style</code>只优化<code>Feature Extractor(Content) Block2, ClsHead(Style)</code>（绿色虚线框框住的模块）。 ## 如何进行梯度回传 定义三个优化器<code>optimizer_content, optimizer_style, optimizer_adv</code>，分别优化三个虚线框内模块的参数；</p>
-<p><strong>容易想到这么一种优化方法：</strong> <figure><div class="code-wrapper"><pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 如果不考虑使用detach()进行模块隔绝（实际上detach对这个网络的优化也无能为力），三个loss在回传过程中都会影响到不希望影响到的模块</span>
-<span class="token comment"># 考虑使用三个优化器，只优化对应模块的参数，三个loss分别回传，优化前都会进行梯度归零、回传后马上更新权值，即可达到想要的优化效果</span>
-optimizer_style<span class="token punctuation">.</span>zero_grad<span class="token punctuation">(</span><span class="token punctuation">)</span>
-loss_cls_style<span class="token punctuation">.</span>backward<span class="token punctuation">(</span>retain_graph<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
-optimizer_style<span class="token punctuation">.</span>step<span class="token punctuation">(</span><span class="token punctuation">)</span>
-
-optimizer_adv<span class="token punctuation">.</span>zero_grad<span class="token punctuation">(</span><span class="token punctuation">)</span>
-loss_adv<span class="token punctuation">.</span>backward<span class="token punctuation">(</span>retain_graph<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
-optimizer_adv<span class="token punctuation">.</span>step<span class="token punctuation">(</span><span class="token punctuation">)</span>
-
-optimizer_content<span class="token punctuation">.</span>zero_grad<span class="token punctuation">(</span><span class="token punctuation">)</span>
-loss_cls_content<span class="token punctuation">.</span>backward<span class="token punctuation">(</span><span class="token punctuation">)</span>
-optimizer_content<span class="token punctuation">.</span>step<span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre></div></figure> <strong>但对于新版本的pytorch，这种优化方式会报错：</strong> &gt; one of the variables needed for gradient computation has been modified by an inplace operation</p>
-<p>这是因为每个loss回传后都需要及时更新对应权值，否则会被梯度归零而无法优化，这也导致了权值已经不同于loss计算时对应的权值，而梯度计算时一般都需要用到权值，也就是<code>modified by an inplace operation</code></p>
-<p><strong>新版本pytorch的backward()加入了inputs参数，该参数能确保loss在回传时只更新特定权值的梯度，于是有了这么一种优化方式：</strong> <figure><div class="code-wrapper"><pre class="line-numbers language-python" data-language="python"><code class="language-python">optimizer_style<span class="token punctuation">.</span>zero_grad<span class="token punctuation">(</span><span class="token punctuation">)</span>
-optimizer_adv<span class="token punctuation">.</span>zero_grad<span class="token punctuation">(</span><span class="token punctuation">)</span>
-optimizer_content<span class="token punctuation">.</span>zero_grad<span class="token punctuation">(</span><span class="token punctuation">)</span>
-
-loss_cls_style<span class="token punctuation">.</span>backward<span class="token punctuation">(</span>retain_graph<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span> inputs<span class="token operator">=</span>style_params<span class="token punctuation">)</span>
-loss_adv<span class="token punctuation">.</span>backward<span class="token punctuation">(</span>retain_graph<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span> inputs<span class="token operator">=</span>adv_params<span class="token punctuation">)</span>
-loss_cls_content<span class="token punctuation">.</span>backward<span class="token punctuation">(</span>inputs<span class="token operator">=</span>content_params<span class="token punctuation">)</span>
-
-optimizer_content<span class="token punctuation">.</span>step<span class="token punctuation">(</span><span class="token punctuation">)</span>
-optimizer_style<span class="token punctuation">.</span>step<span class="token punctuation">(</span><span class="token punctuation">)</span>
-optimizer_adv<span class="token punctuation">.</span>step<span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre></div></figure></p>
+                <span id="more"></span>
+<h1 id="eventloopthread类">EventLoopThread类</h1>
+<figure><div class="code-wrapper"><pre class="line-numbers language-cpp" data-language="cpp"><code class="language-cpp"><span class="token keyword">class</span> <span class="token class-name">EventLoopThread</span> <span class="token punctuation">&#123;</span>
+<span class="token keyword">private</span><span class="token operator">:</span>
+    EventLoop <span class="token operator">*</span>loop_<span class="token punctuation">;</span>
+    Thread thread_<span class="token punctuation">;</span>
+<span class="token keyword">public</span><span class="token operator">:</span>
+    EventLoop<span class="token operator">*</span> <span class="token function">startLoop</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre></div></figure>
+<h2 id="startloop">startLoop()</h2>
+<p><code>one loop per thread</code> 是moduo库设计的核心思想，为了保证这一点，<code>EventLoop</code> 类有一个成员<code>const pid_t threadId_</code>，记录创建该loop的线程id，表示该loop属于某一特定线程；以后可能会出现其他线程调用该loop的 <code>public</code> 函数的情况（特别是主线程调用工作线程的loop），这时候就要用这个 <code>threadId_</code> 对比当前调用线程id，如果不一致需唤醒对应线程，让它来调用；</p>
+<p><code>startLoop()</code> 会在线程池生成工作线程时被调用，它的调用者是主线程，由于loop的<code>threadId_</code> 是<code>const</code>类型，只能在构造函数处被初始化且不能被另外修改，因此loop只能在工作线程处创建，而<code>EventLoopThread</code> 类中的<code>EventLoop *loop_</code> 成员指向了该loop，该成员的赋值就在<code>startLoop()</code> 内，这里就涉及到了主线程和工作线程同步问题（主线程需要在工作线程完成loop创建后才能进行赋值），也就有了下面的代码： <figure><div class="code-wrapper"><pre class="line-numbers language-cpp" data-language="cpp"><code class="language-cpp"><span class="token comment">// 主线程调用的startLoop()内</span>
+EventLoop<span class="token operator">*</span> loop <span class="token operator">=</span> <span class="token constant">NULL</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#123;</span>
+    MutexLockGuard <span class="token function">lock</span><span class="token punctuation">(</span>mutex_<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">while</span> <span class="token punctuation">(</span>loop_ <span class="token operator">==</span> <span class="token constant">NULL</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        cond_<span class="token punctuation">.</span><span class="token function">wait</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    loop <span class="token operator">=</span> loop_<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+<span class="token comment">// 工作线程的回调函数</span>
+EventLoop loop<span class="token punctuation">;</span> <span class="token comment">// 工作线程创建loop</span>
+<span class="token punctuation">&#123;</span>
+    MutexLockGuard <span class="token function">lock</span><span class="token punctuation">(</span>mutex_<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    loop_ <span class="token operator">=</span> <span class="token operator">&amp;</span>loop<span class="token punctuation">;</span>
+    cond_<span class="token punctuation">.</span><span class="token function">notify</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+loop<span class="token punctuation">.</span><span class="token function">loop</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// loop开启事件循环</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre></div></figure></p>
 
                 
               </div>
@@ -329,7 +327,7 @@ optimizer_adv<span class="token punctuation">.</span>step<span class="token punc
     
       <span class="category-chain">
         
-  <a href="/categories/Pytorch/" class="category-chain-item">Pytorch</a>
+  <a href="/categories/%E6%B7%B1%E5%85%A5%E4%BA%86%E8%A7%A3muduo%E5%BA%93/" class="category-chain-item">深入了解muduo库</a>
   
   
 
@@ -341,6 +339,13 @@ optimizer_adv<span class="token punctuation">.</span>step<span class="token punc
     </div>
   
   
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/muduo%E5%BA%93EventLoopThread/">#muduo库EventLoopThread</a>
+      
+    </div>
+  
 </div>
 
 
@@ -349,8 +354,8 @@ optimizer_adv<span class="token punctuation">.</span>step<span class="token punc
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>Pytorch Loss优化</div>
-      <div>http://example.com/2022/07/15/Pytorch Loss/</div>
+      <div>深入了解muduo库：EventLoopThread类</div>
+      <div>http://example.com/2022/10/26/muduo-EventLoopThread/</div>
     </div>
     <div class="license-meta">
       
@@ -362,7 +367,7 @@ optimizer_adv<span class="token punctuation">.</span>step<span class="token punc
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2022年7月15日</div>
+          <div>2022年10月26日</div>
         </div>
       
       
@@ -394,9 +399,9 @@ optimizer_adv<span class="token punctuation">.</span>step<span class="token punc
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2022/10/26/muduo-EventLoopThread/" title="深入了解muduo库：EventLoopThread类">
+                      <a href="/2022/11/02/muduo-EventLoop/" title="深入了解muduo库：EventLoop类">
                         <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">深入了解muduo库：EventLoopThread类</span>
+                        <span class="hidden-mobile">深入了解muduo库：EventLoop类</span>
                         <span class="visible-mobile">上一篇</span>
                       </a>
                     
@@ -404,8 +409,8 @@ optimizer_adv<span class="token punctuation">.</span>step<span class="token punc
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2022/07/15/Manacher/" title="Manacher算法">
-                        <span class="hidden-mobile">Manacher算法</span>
+                      <a href="/2022/07/15/Pytorch%20Loss/" title="Pytorch Loss优化">
+                        <span class="hidden-mobile">Pytorch Loss优化</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
